@@ -1,0 +1,6 @@
+[submodule "libharu"]
+	path = libharu
+	url = https://github.com/libharu/libharu
+[submodule "libPRC"]
+	path = libPRC
+	url = https://github.com/XenonofArcticus/libPRC
