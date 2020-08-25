@@ -160,6 +160,9 @@ set( CMAKE_MODULE_PATH ${PROJECT_SOURCE_DIR}/libPRC/CMakeModules ${CMAKE_MODULE_
 include( CMakeMacros )
 
 add_definitions( -DPRC_USE_ASYMPTOTE )
+if (WIN32)
+    add_definitions( -DPRC_STATIC )
+endif()
 
 
 set (
@@ -203,3 +206,7 @@ include_directories(${CMAKE_SOURCE_DIR}/libPRC/src/libPRC)
 
 add_executable(mshtopdf WIN32 ${MSHTOPDF_SRCS})
 target_link_libraries(mshtopdf ${ADDITIONAL_LIBRARIES})
+
+if(WIN32)
+   set_target_properties(mshtopdf PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
+endif(WIN32)
