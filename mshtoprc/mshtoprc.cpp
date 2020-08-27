@@ -1,7 +1,7 @@
 
 /*
  The application mathgl (see http://archive.ubuntu.com/ubuntu/pool/universe/m/mathgl/mathgl_2.3.4.orig.tar.gz)
- has the option to export to a .prc or diectly to a .pdf file (see prc.cpp)
+ has the option to export to a .prc or directly to a .pdf file (see prc.cpp)
 
  Links:
  https://sourceforge.net/p/libharu/patches/8/
@@ -13,6 +13,7 @@
 
  https://github.com/vectorgraphics/asymptote
  https://github.com/XenonofArcticus/libPRC/tree/master/src/asymptote
+ https://github.com/vectorgraphics/asymptote
 
  https://groups.google.com/forum/?_escaped_fragment_=topic/mathgl/wj3-E19XS5o#!topic/mathgl/wj3-E19XS5o
  http://www.okino.com/conv/imp_u3d.htm
@@ -42,15 +43,19 @@
 #ifdef USE_WIDE_CHAR
 typedef std::wstring String;
 String PATHSEP = L"/\\";
+String pdfExt = L".pdf";
+String prcExt = L".prc";
 #else
 typedef std::string String;
 String PATHSEP = "/\\";
+String pdfExt = ".pdf";
+String prcExt = ".prc";
 #endif
 
 
 // forward declarations
 struct BoundingBox;
-int convertPdf(const std::string& prcData, const String& pdfFile, BoundingBox bbox);
+int convertPdf(const std::string& prcData, std::vector<HPDF_BYTE>& pdfData, BoundingBox bbox);
 
 struct BoundingBox {
     float minX, maxX;
@@ -71,6 +76,13 @@ std::string narrow(const std::wstring& str)
     for (size_t i=0; i<str.size(); ++i)
         stm << ctfacet.narrow(str[i], 0);
     return stm.str();
+}
+
+bool endsWith(const String& value, const String& ending)
+{
+    if (ending.size() > value.size())
+        return false;
+    return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
 }
 
 void loadMesh(String inputName, Mesh& mesh)
@@ -128,7 +140,7 @@ void loadMesh(String inputName, Mesh& mesh)
             facetArray.push_back(v2);
             facetArray.push_back(v3);
 
-            // The neighour indices
+            // The neighbour indices
             str >> v1 >> v2 >> v3;
         }
 
@@ -238,7 +250,6 @@ int main(int argc, char** argv)
     }
 
 #ifdef USE_WIDE_CHAR
-    typedef std::wstring String;
     std::vector<String> args;
     std::wstring option = L"-o";
 
@@ -256,7 +267,6 @@ int main(int argc, char** argv)
 
     LocalFree(szArgList);
 #else
-    typedef std::string String;
     std::vector<String> args;
     std::string option = "-o";
 
@@ -264,11 +274,11 @@ int main(int argc, char** argv)
         args.push_back(std::string(argv[i]));
 #endif
 
-    std::stringstream ostr;//(std::ios_base::out | std::ios_base::binary);
+    std::stringstream ostr;
     if (ostr.bad())
         return -1;
 
-    String pdfName;
+    String outputName;
     oPRCFile* prcFile(new oPRCFile(ostr));
     if (prcFile == NULL)
         return -1;
@@ -283,18 +293,37 @@ int main(int argc, char** argv)
     globalbox.minZ =  FLT_MAX;
     float alpha = argc > 4 ? 0.8f : 1.0f;
     for (std::size_t i=0; i<args.size(); i++) {
-        String arg(args[i]);
-        if (arg != option) {
-            BoundingBox bbox = addMeshToPrc(arg, prcFile, alpha);
-            globalbox.maxX = std::max<float>(globalbox.maxX, bbox.maxX);
-            globalbox.maxY = std::max<float>(globalbox.maxY, bbox.maxY);
-            globalbox.maxZ = std::max<float>(globalbox.maxZ, bbox.maxZ);
-            globalbox.minX = std::min<float>(globalbox.minX, bbox.minX);
-            globalbox.minY = std::min<float>(globalbox.minY, bbox.minY);
-            globalbox.minZ = std::min<float>(globalbox.minZ, bbox.minZ);
+        String inputFile(args[i]);
+        if (inputFile != option) {
+            if (endsWith(inputFile, prcExt)) {
+                std::ifstream fstr(inputFile, std::ios::in | std::ios::binary);
+                std::string str;
+
+                fstr.seekg(0, std::ios::end);
+                str.reserve(fstr.tellg());
+                fstr.seekg(0, std::ios::beg);
+                str.assign((std::istreambuf_iterator<char>(fstr)), std::istreambuf_iterator<char>());
+                ostr << str;
+
+                globalbox.maxX = std::max<float>(globalbox.maxX, 10.0f);
+                globalbox.maxY = std::max<float>(globalbox.maxY, 10.0f);
+                globalbox.maxZ = std::max<float>(globalbox.maxZ, 10.0f);
+                globalbox.minX = std::min<float>(globalbox.minX, 0.0f);
+                globalbox.minY = std::min<float>(globalbox.minY, 0.0f);
+                globalbox.minZ = std::min<float>(globalbox.minZ, 0.0f);
+            }
+            else {
+                BoundingBox bbox = addMeshToPrc(inputFile, prcFile, alpha);
+                globalbox.maxX = std::max<float>(globalbox.maxX, bbox.maxX);
+                globalbox.maxY = std::max<float>(globalbox.maxY, bbox.maxY);
+                globalbox.maxZ = std::max<float>(globalbox.maxZ, bbox.maxZ);
+                globalbox.minX = std::min<float>(globalbox.minX, bbox.minX);
+                globalbox.minY = std::min<float>(globalbox.minY, bbox.minY);
+                globalbox.minZ = std::min<float>(globalbox.minZ, bbox.minZ);
+            }
         }
         else if (i+1 < args.size()) {
-            pdfName = args[i+1];
+            outputName = args[i+1];
             break;
         }
     }
@@ -305,8 +334,20 @@ int main(int argc, char** argv)
     std::string prcData = ostr.str();
     delete prcFile;
 
-    if (!pdfName.empty())
-        return convertPdf(prcData, pdfName, globalbox);
+    if (endsWith(outputName, pdfExt)) {
+        std::vector<HPDF_BYTE> pdfData;
+        int error = convertPdf(prcData, pdfData, globalbox);
+        if (error != 0)
+            return error;
+        std::ofstream fstr(outputName, std::ios::out | std::ios::binary);
+        fstr.write(reinterpret_cast<char*>(&(pdfData[0])), pdfData.size());
+        fstr.close();
+    }
+    else if (endsWith(outputName, prcExt)) {
+        std::ofstream fstr(outputName, std::ios::out | std::ios::binary);
+        fstr.write(reinterpret_cast<char*>(&(prcData[0])), prcData.size());
+        fstr.close();
+    }
 
     return 0;
 }
@@ -327,7 +368,7 @@ error_handler  (HPDF_STATUS   error_no,
     longjmp(env, 1);
 }
 
-int convertPdf(const std::string& prcData, const String& pdfFile, BoundingBox bbox)
+int convertPdf(const std::string& prcData, std::vector<HPDF_BYTE>& pdfData, BoundingBox bbox)
 {
     HPDF_Doc pdf;
     HPDF_Page page;
@@ -373,15 +414,11 @@ int convertPdf(const std::string& prcData, const String& pdfFile, BoundingBox bb
 //    HPDF_SaveToFile (pdf, pdfFile.c_str());
     HPDF_SaveToStream(pdf);
     HPDF_UINT32 len = HPDF_GetStreamSize(pdf);
-    std::vector<HPDF_BYTE> buf(len);
-    HPDF_ReadFromStream(pdf, &(buf[0]), &len);
+    pdfData.resize(len);
+    HPDF_ReadFromStream(pdf, &(pdfData[0]), &len);
 
     /* clean up */
     HPDF_Free (pdf);
-
-    std::ofstream ostr(pdfFile.c_str(), std::ios::out | std::ios::binary);
-    ostr.write(reinterpret_cast<char*>(&(buf[0])), buf.size());
-    ostr.close();
 
     return 0;
 }
