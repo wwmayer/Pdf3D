@@ -187,6 +187,14 @@ set (
     libPRC/src/asymptote/oPRCFile.h
     libPRC/src/asymptote/writePRC.cc
     libPRC/src/asymptote/writePRC.h
+    asymptote/PRCTools/bitData.cc
+    asymptote/PRCTools/bitData.h
+    asymptote/PRCTools/describePRC.cc
+    asymptote/PRCTools/describePRC.h
+    asymptote/PRCTools/inflation.cc
+    asymptote/PRCTools/inflation.h
+    asymptote/PRCTools/iPRCFile.cc
+    asymptote/PRCTools/iPRCFile.h
 )
 
 # =====================================================
@@ -203,6 +211,7 @@ set (
 
 include_directories(${CMAKE_SOURCE_DIR}/libPRC/src/asymptote)
 include_directories(${CMAKE_SOURCE_DIR}/libPRC/src/libPRC)
+include_directories(${CMAKE_SOURCE_DIR}/asymptote/PRCTools)
 
 add_executable(mshtopdf WIN32 ${MSHTOPDF_SRCS})
 target_link_libraries(mshtopdf ${ADDITIONAL_LIBRARIES})
