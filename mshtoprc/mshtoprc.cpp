@@ -21,7 +21,7 @@
  IDTFConverter.exe  -en 1 -rzf 0 -pq 500 -input test.idtf -output test.u3d
 */
 
-#ifdef WIN32
+#ifdef _MSC_VER
 # pragma warning(disable : 4244)
 # define NOMINMAX
 # include <Windows.h>

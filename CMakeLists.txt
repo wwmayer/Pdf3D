@@ -216,6 +216,6 @@ include_directories(${CMAKE_SOURCE_DIR}/asymptote/PRCTools)
 add_executable(mshtopdf WIN32 ${MSHTOPDF_SRCS})
 target_link_libraries(mshtopdf ${ADDITIONAL_LIBRARIES})
 
-if(WIN32)
+if(MSVC)
    set_target_properties(mshtopdf PROPERTIES LINK_FLAGS "/SUBSYSTEM:CONSOLE")
-endif(WIN32)
+endif(MSVC)
